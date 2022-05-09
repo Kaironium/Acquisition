@@ -32,7 +32,7 @@ if __name__ == '__main__':
                 # https://root.cern.ch/root/htmldoc/guides/spectrum/Spectrum.html#processing-and-visualization-functions
 
                 spec = ROOT.TSpectrum()
-                n_pks = spec.Search(h, 10, "", 0.5)
+                n_pks = spec.Search(h, 1, "", 0.005)
                 x_pos = spec.GetPositionX()
                 y_pos = spec.GetPositionY()
 
@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
                 peak = x_pos[-1]
 
-                f1 = ROOT.TF1("f1","gaus",x_pos[-1]-np.sqrt(x_pos[-1]),x_pos[-1]+np.sqrt(x_pos[-1]))
+                f1 = ROOT.TF1("f1","gaus",x_pos[-1]-200,x_pos[-1]+200)
 
                 r = h.Fit(f1, 'ILMSR+')
 
@@ -66,44 +66,61 @@ if __name__ == '__main__':
                     h.Draw()
                     c.Update()
             else:
-                spec = ROOT.TSpectrum()
-                n_pks = spec.Search(h, 0.03)
-                x_pos = spec.GetPositionX()
-                y_pos = spec.GetPositionY()
+                #spec = ROOT.TSpectrum()
+                #n_pks = spec.Search(h, 0.03)
+                #x_pos = spec.GetPositionX()
+                #y_pos = spec.GetPositionY()
 
-                x_pos = np.array([x_pos[i] for i in range(n_pks)])
-                y_pos = np.array([y_pos[i] for i in range(n_pks)])
+                #x_pos = np.array([x_pos[i] for i in range(n_pks)])
+                #y_pos = np.array([y_pos[i] for i in range(n_pks)])
 
-                ind = np.argsort(x_pos)
-                x_pos = x_pos[ind]
-                y_pos = y_pos[ind]
-                                      
-                n = len(x_pos)
+                #ind = np.argsort(x_pos)
+                #x_pos = x_pos[ind]
+                #y_pos = y_pos[ind]
+                #                      
+                #n = len(x_pos)
 
-                print("Found %i peaks" % n)
+                #print("Found %i peaks" % n)
 
-                string = "+".join(["gaus(%i)" % i for i in range(0,n*3,3)])
+                n = 10
+                string = "[0]*(" + "+".join(["TMath::Poisson(%i,[2])*TMath::Gaus(x-[1],[3]*%i,TMath::Sqrt([4]^2+[5]^2*%i))" % (i,i,i) for i in range(0,n)]) + ")"
+
+                #string = "+".join(["gaus(%i)" % i for i in range(0,n*3,3)])
 
                 print("Using the following fit string: '%s'" % string)
 
-                f1 = ROOT.TF1("f1",string,x_pos[0]-0.1,x_pos[-1]+0.03)
-                for j, i in enumerate(range(0,n*3,3)):
-                    print(i)
-                    f1.SetParameter(i,y_pos[j])
-                    f1.SetParameter(i+1,x_pos[j])
-                    f1.FixParameter(i+1,x_pos[j])
-                    f1.SetParameter(i+2,0.02)
-                    f1.FixParameter(i+2,0.02)
+                f1 = ROOT.TF1("f1",string,-0.4,4.)
+                f1.SetParameter(0,1000)
+                f1.SetParLimits(0,1,100000)
+                f1.SetParameter(1,-0.08)
+                f1.SetParLimits(1,-1,1)
+                f1.SetParameter(2,0.065)
+                f1.SetParLimits(2,0.0000001,0.1)
+                f1.SetParameter(3,3.)
+                f1.SetParLimits(3,0.1,5.)
+                f1.SetParameter(4,0.17)
+                f1.SetParLimits(4,0.1,10)
+                f1.SetParameter(5,0.17)
+                f1.SetParLimits(5,0.1,10)
 
-                r = h.Fit(f1, 'ILMSRN+')
+                #for j, i in enumerate(range(0,n*3,3)):
+                #    print(i)
+                #    f1.SetParameter(i,y_pos[j])
+                #    f1.SetParameter(i+1,x_pos[j])
+                #    f1.FixParameter(i+1,x_pos[j])
+                #    f1.SetParameter(i+2,0.02)
+                #    f1.FixParameter(i+2,0.02)
 
-                for j, i in enumerate(range(0,n*3,3)):
-                    print(i)
-                    f1.ReleaseParameter(i)
-                    f1.ReleaseParameter(i+1)
-                    f1.ReleaseParameter(i+2)
+                #r = h.Fit(f1, 'ILMSRN+')
+                r = h.Fit(f1, 'SR+')
 
-                r = h.Fit(f1, 'ILMSR+')
+                #for j, i in enumerate(range(0,n*3,3)):
+                #    print(i)
+                #    f1.ReleaseParameter(i)
+                #    f1.ReleaseParameter(i+1)
+                #    f1.ReleaseParameter(i+2)
+
+                #r = h.Fit(f1, 'ILMSR+')
 
                 r = r.Get()
 
@@ -111,9 +128,9 @@ if __name__ == '__main__':
                     print("Fit error!")
                     continue
 
-                print("peak 1 = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
-                if n > 1:
-                    print("peak 2 = %.4f +/- %.4f" % (f1.GetParameter(4), f1.GetParError(4)))
+                #print("peak 1 = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
+                #if n > 1:
+                #    print("peak 2 = %.4f +/- %.4f" % (f1.GetParameter(4), f1.GetParError(4)))
 
                 h.Write()
                 if args.plot:

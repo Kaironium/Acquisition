@@ -114,11 +114,16 @@ if __name__ == '__main__':
                 for i in range(0, N, args.chunks):
                     x, y = convert_data(f,channel,i,i+args.chunks)
 
+                    y -= np.mean(y[:,x < -100],axis=-1)[:,np.newaxis]
+
                     if i == 0:
                         if args.sodium:
                             a, b = get_window(x,y,left=50,right=300)
                         else:
                             a, b = get_window(x,y,left=50,right=300)
+
+                            a = 10
+                            b = 2000
 
                     if channel in charge:
                         charge[channel] = np.concatenate((charge[channel],integrate(x,y, a, b)))
