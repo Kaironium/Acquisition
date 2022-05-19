@@ -62,8 +62,7 @@ if __name__ == '__main__':
                 #Search 	( 	const TH1 *  	hin,
 	        #Double_t  	sigma = 2,
 		#Option_t *  	option = "",
-		#Double_t  	threshold = 0.05 #Peaks with  amplitude < th*Amax are discarded. If too small -> detects peaks after the 511 peak. The code right now detects the last peak detected as the 511 peak. Other option is to iterate through the y positions and keep always the latest peak with an increase over the previous ones? first derivative with respect to max/min closest to zero 
-	) 	
+		#Double_t  	threshold = 0.05 #Peaks with  amplitude < th*Amax are discarded. If too small -> detects peaks after the 511 peak. The code right now detects the last peak detected as the 511 peak. Other option is to iterate through the y positions and keep always the latest peak with an increase over the previous ones? first derivative with respect to max/min closest to zero 	
                 spec = ROOT.TSpectrum()
                 if(args.BV==42):
                     n_pks = spec.Search(h, 1, "", 0.01)
