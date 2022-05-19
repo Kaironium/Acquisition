@@ -163,6 +163,7 @@ if __name__ == '__main__':
                     plt.axvline(x[b])
                     plt.suptitle(channel)
                     prname=filename[:len(filename)-5]
+                    #print("PDF printing")
                     plt.savefig("./FiguresAnalysis/"+prname+"_"+str(channel)+"_TimeVolt"+".pdf")
 
 
@@ -185,6 +186,7 @@ if __name__ == '__main__':
             plt.hist(charge[channel],bins=bins,histtype='step',label=channel)
             plt.xlabel("Charge (pC)")
             plt.legend()
+            #print("PDF printing")
             #print("FILENAME:")
             #print(filename[1:10])
             #print(len(filename))

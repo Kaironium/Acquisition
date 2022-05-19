@@ -97,7 +97,7 @@ if __name__ == '__main__':
                 if not r.IsValid():
                     print("Fit error!")
                     continue
-
+                #*** Store values in txt/csv file
                 print("511 peak = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
 
                 h.Write()
@@ -149,7 +149,8 @@ if __name__ == '__main__':
 
                 #r = h.Fit(f1, 'ILMSRN+')
                 r = h.Fit(f1, 'SR+')
-
+                #*** Store parameter p3 in csv/txt + print in screen only that one to avoid errors 
+                
                 #for j, i in enumerate(range(0,n*3,3)):
                 #    print(i)
                 #    f1.ReleaseParameter(i)
