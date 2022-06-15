@@ -3,6 +3,26 @@ from __future__ import print_function, division
 import h5py
 import numpy as np
 import sys
+import csv
+
+
+def save_as_csv(data_type, value, value_err):
+    if data_type == 'sodium':
+        filename = 'sodium_data'
+    else: 
+        filename = 'SPE_data'
+
+    with open (filename, 'w') as file:
+        headers = [
+            'Charge',
+            'Err Abs'
+        ]
+        writer = csv.Dictwriter(file, headers)
+        writer.writerow({
+            'Charge': value,
+            'Err Abs': value_err
+        })
+
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -17,6 +37,7 @@ if __name__ == '__main__':
     #parser.add_argument('--peakper', type=double, default=0, help='Direct change of maximum percentage change from maximum peak')
     parser.add_argument('--pdf', default=False, action='store_true', help='Save the fit canvas as pdf')
     parser.add_argument('--ObjKeep', type=int,default=2,  help='Number of objects to fit')
+
 
     args = parser.parse_args()
     
@@ -99,6 +120,7 @@ if __name__ == '__main__':
                     continue
                 #*** Store values in txt/csv file
                 print("511 peak = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
+                save_as_csv('sodium', f1.GetParamter(1), f1.GetParError(1))
 
                 h.Write()
                 if args.pdf:
@@ -128,14 +150,19 @@ if __name__ == '__main__':
                 f1 = ROOT.TF1("f1",string,-0.4,4.)
                 f1.SetParameter(0,1000)
                 f1.SetParLimits(0,1,100000)
+
                 f1.SetParameter(1,-0.08)
                 f1.SetParLimits(1,-1,1)
+                
                 f1.SetParameter(2,0.065)
                 f1.SetParLimits(2,0.0000001,0.1)
-                f1.SetParameter(3,3.)
-                f1.SetParLimits(3,0.1,5.)
-                f1.SetParameter(4,0.17)
+                
+                f1.SetParameter(3,3.)                
+                f1.SetParLimits(3,0.75,5.)
+                
+                f1.SetParameter(4,0.17)         
                 f1.SetParLimits(4,0.1,10)
+                
                 f1.SetParameter(5,0.17)
                 f1.SetParLimits(5,0.1,10)
 
@@ -168,6 +195,8 @@ if __name__ == '__main__':
                 #print("peak 1 = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
                 #if n > 1:
                 #    print("peak 2 = %.4f +/- %.4f" % (f1.GetParameter(4), f1.GetParError(4)))
+                
+                save_as_csv('SPE', f1.GetParameter(3), f1.GetParError(3)):
 
                 h.Write()
                 #print(args.plot)

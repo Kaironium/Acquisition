@@ -1,4 +1,5 @@
 #!/bin/sh
+set -x
 
 #Author : Guillermo Reales & Anthony La Torre
 #Commands required for a single spe/LO callibration
@@ -15,36 +16,44 @@ date +"%D %T"
 
 ### VARIABLES
 # * LYSO barcode
-Lcode="572"
+Lcode="526"
 # * Date
-date="190522"
+date="140622"
 # * Bias Voltage
 BV="42"
 # * Extra
-EXTRA=""
+EXTRA="Kai_test"
 # Creating filenames
-lspe="sodium_spe_437LYSOv0_45v.hdf5"
-lp511="sodium_p511_437LYSOv0_45v.hdf5"
+lspe="spe_settings.hdf5"
+lp511="511_settings.hdf5"
 spe_hdf5="sodium_spe_${Lcode}LYSO_${date}_${BV}v${EXTRA}.hdf5"
 spe_root="sodium_spe_${Lcode}LYSO_${date}_${BV}v${EXTRA}.root"
 p511_hdf5="sodium_p511_${Lcode}LYSO_${date}_${BV}v${EXTRA}.hdf5"
 p511_root="sodium_p511_${Lcode}LYSO_${date}_${BV}v${EXTRA}.root"
 
 # * number of events
-ne=1000
+ne=20000
 # * ipadress
 ipad="192.168.0.182"
 
 # SPE ANALYSIS
 ./load-settings --ip-address  $ipad $lspe
+sleep 10
 ./acquire-waveforms -n $ne --ip-address $ipad -o $spe_hdf5
+sleep 10
 ./analyze-waveforms $spe_hdf5 -o $spe_root --pdf 
+sleep 10
 ./fit-histograms $spe_root --pdf
 # P511 ANALYSIS
 ./load-settings --ip-address $ipad $lp511
+sleep 10
 ./acquire-waveforms -n $ne --ip-address $ipad -o $p511_hdf5
+sleep 10
 ./analyze-waveforms $p511_hdf5 -o $p511_root --sodium --pdf 
+sleep 10
 ./fit-histograms $p511_root --sodium --pdf
+
+./save_data
 
 echo "Ending time : "
 date +"%D %T"

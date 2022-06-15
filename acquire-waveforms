@@ -96,13 +96,13 @@ if __name__ == '__main__':
 
     print("*idn? = %s" % dpo.query('*idn?').strip())
 
-    settings = get_settings(dpo)
-
     if args.settings:
         with h5py.File(args.settings,'r') as f:
             settings = dict(f['settings'].attrs)
         print("loading settings from %s" % args.settings)
         set_settings(dpo,settings)
+
+    settings = get_settings(dpo)
 
     wait_till_done(dpo)
 
@@ -123,7 +123,7 @@ if __name__ == '__main__':
 
     f.create_group("settings")
 
-    for key, value in get_settings(dpo).items():
+    for key, value in settings.items():
         f['settings'].attrs[key] = value
 
     enabled_channels = []
