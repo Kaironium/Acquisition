@@ -16,44 +16,67 @@ date +"%D %T"
 
 ### VARIABLES
 # * LYSO barcode
-Lcode="526"
+Lcode="NA"
 # * Date
-date="140622"
+date=$(date +%m%d%Y)
+# * Time
+Time=$(date +%k":"%M":"%S)
 # * Bias Voltage
 BV="42"
+# * Integration Time
+IT="150"
+# * Rewind Time
+rewind="200"
 # * Extra
-EXTRA="Kai_test"
+EXTRA="Testing_all_jumper_positions_series"
+
+# First 4 arguments are in this order:
+# Channel 1 SiPM Number
+ch1SiPMNum="027"
+# HAMAMATSU3x3
+# Channel 1 Jumper Position (Position 1 is farthest from channel outlets)
+ch1jp="0"
+# Channel 2 SiPM Number
+ch2SiPMNum="026"
+# Channel 2 Jumper Position (Position 1 is farthest from channel outlets)
+ch2jp="0"
+# Number of Channel Specific Arguments
+ChSpecArgs="4"
+
 # Creating filenames
 lspe="spe_settings.hdf5"
 lp511="511_settings.hdf5"
-spe_hdf5="sodium_spe_${Lcode}LYSO_${date}_${BV}v${EXTRA}.hdf5"
-spe_root="sodium_spe_${Lcode}LYSO_${date}_${BV}v${EXTRA}.root"
-p511_hdf5="sodium_p511_${Lcode}LYSO_${date}_${BV}v${EXTRA}.hdf5"
-p511_root="sodium_p511_${Lcode}LYSO_${date}_${BV}v${EXTRA}.root"
+spe_hdf5="sodium_spe_${Lcode}LYSO_${date}_${Time}_${BV}v_jp-${ch1jp1}-${ch2jp}_${EXTRA}.hdf5"
+spe_root="sodium_spe_${Lcode}LYSO_${date}_${Time}_${BV}v_jp-${ch1jp1}-${ch2jp}_${EXTRA}.root"
+p511_hdf5="sodium_p511_${Lcode}LYSO_${date}_${Time}_${BV}v_jp-${ch1jp1}-${ch2jp}_${EXTRA}.hdf5"
+p511_root="sodium_p511_${Lcode}LYSO_${date}_${Time}_${BV}v_jp-${ch1jp1}-${ch2jp}_${EXTRA}.root"
 
 # * number of events
-ne=20000
+ne=500
 # * ipadress
 ipad="192.168.0.182"
 
+python3 clear_temp_data.py
+
 # SPE ANALYSIS
 ./load-settings --ip-address  $ipad $lspe
-sleep 10
+sleep 1
 ./acquire-waveforms -n $ne --ip-address $ipad -o $spe_hdf5
-sleep 10
-./analyze-waveforms $spe_hdf5 -o $spe_root --pdf 
-sleep 10
-./fit-histograms $spe_root --pdf
+sleep 1
+./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --IT $IT --r $rewind 
+sleep 1
+./fit-histograms $spe_root --pdf --SPE_FLL -0.4 --SPE_FLR 1.5
 # P511 ANALYSIS
 ./load-settings --ip-address $ipad $lp511
-sleep 10
+sleep 1
 ./acquire-waveforms -n $ne --ip-address $ipad -o $p511_hdf5
-sleep 10
+sleep 1
 ./analyze-waveforms $p511_hdf5 -o $p511_root --sodium --pdf 
-sleep 10
+sleep 1
 ./fit-histograms $p511_root --sodium --pdf
 
-./save_data
+
+python3 save_data.py "$ChSpecArgs" "$ch1SiPMNum" "$ch1jp" "$ch2SiPMNum" "$ch2jp" BV "$BV" "Number of Events" "$ne" Lcode "$Lcode" Date "$date" Time "$Time" Extra "$EXTRA"
 
 echo "Ending time : "
 date +"%D %T"

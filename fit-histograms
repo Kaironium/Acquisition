@@ -4,21 +4,22 @@ import h5py
 import numpy as np
 import sys
 import csv
+import os
 
-
-def save_as_csv(data_type, value, value_err):
-    if data_type == 'sodium':
-        filename = 'sodium_data'
-    else: 
-        filename = 'SPE_data'
-
-    with open (filename, 'w') as file:
+def save_as_csv(data_type, value, value_err, channel):
+    with open ('temp_data.csv', 'a') as file:
         headers = [
+            'Data Type',
+            'Channel',
             'Charge',
             'Err Abs'
-        ]
-        writer = csv.Dictwriter(file, headers)
+            ]
+        writer = csv.DictWriter(file, headers)
+        if os.stat('temp_data.csv').st_size == 0:
+            writer.writeheader()
         writer.writerow({
+            'Data Type': data_type,
+            'Channel': channel,
             'Charge': value,
             'Err Abs': value_err
         })
@@ -37,9 +38,12 @@ if __name__ == '__main__':
     #parser.add_argument('--peakper', type=double, default=0, help='Direct change of maximum percentage change from maximum peak')
     parser.add_argument('--pdf', default=False, action='store_true', help='Save the fit canvas as pdf')
     parser.add_argument('--ObjKeep', type=int,default=2,  help='Number of objects to fit')
-
-
+    parser.add_argument('--SPE_FLL', default=-0.1, type=float, help='Left limit on the spe fit')
+    parser.add_argument('--SPE_FLR', default=-0.1, type=float, help='Right limit on the spe fit')
+    parser.add_argument('--NA_GF', default=50, type=float, help='Right limit on the spe fit')
+    
     args = parser.parse_args()
+    
     
     canvas_count = 1
 
@@ -100,7 +104,8 @@ if __name__ == '__main__':
 
                 x_pos = np.array([x_pos[i] for i in range(n_pks)])
                 y_pos = np.array([y_pos[i] for i in range(n_pks)])
-
+                print("Peak charge full list:")
+                print(x_pos)
                 ind = np.argsort(x_pos)
                 x_pos = x_pos[ind]
                 y_pos = y_pos[ind]
@@ -109,7 +114,7 @@ if __name__ == '__main__':
 
                 peak = x_pos[-1]
 
-                f1 = ROOT.TF1("f1","gaus",peak-200,peak+200)
+                f1 = ROOT.TF1("f1","gaus",peak-args.NA_GF,peak+args.NA_GF)
 
                 r = h.Fit(f1, 'ILMSR+')
 
@@ -120,7 +125,7 @@ if __name__ == '__main__':
                     continue
                 #*** Store values in txt/csv file
                 print("511 peak = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
-                save_as_csv('sodium', f1.GetParamter(1), f1.GetParError(1))
+                save_as_csv('sodium', f1.GetParameter(1), f1.GetParError(1), h.GetName())
 
                 h.Write()
                 if args.pdf:
@@ -147,7 +152,9 @@ if __name__ == '__main__':
 
                 print("Using the following fit string: '%s'" % string)
                 # *** we could set a threshold/break to find when the Y axis /charge goes above a certain values from the smallest X to set the first value (-0.4 as of the time of this comment)
-                f1 = ROOT.TF1("f1",string,-0.4,4.)
+                
+                f1 = ROOT.TF1("f1",string,args.SPE_FLL,args.SPE_FLR)
+                #f1 = ROOT.TF1("f1",string,-0.4,4.)
                 f1.SetParameter(0,1000)
                 f1.SetParLimits(0,1,100000)
 
@@ -196,9 +203,11 @@ if __name__ == '__main__':
                 #if n > 1:
                 #    print("peak 2 = %.4f +/- %.4f" % (f1.GetParameter(4), f1.GetParError(4)))
                 
-                save_as_csv('SPE', f1.GetParameter(3), f1.GetParError(3)):
+                save_as_csv('SPE', f1.GetParameter(3), f1.GetParError(3), h.GetName())
 
+                h.GetXaxis().SetRangeUser(-4, 4)
                 h.Write()
+
                 #print(args.plot)
                 #print(args.pdf)
                 if args.plot:
