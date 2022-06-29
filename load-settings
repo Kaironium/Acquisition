@@ -24,16 +24,30 @@ def wait_till_done(dpo):
     while not is_done(dpo):
         time.sleep(0.1)
 
+def get_ip():
+    try:
+        with open('scope_ip_address.txt', 'r') as file:
+            return file.readline().strip()
+    except FileNotFoundError:
+        return None
+
 if __name__ == '__main__':
     import pyvisa as visa
     import h5py
     from argparse import ArgumentParser
 
+    ip = get_ip()
+
     parser = ArgumentParser(description='Take data from the Agilent scope')
     parser.add_argument('--timeout', type=int, default=2000, help='timeout (ms)')
-    parser.add_argument('--ip-address', help='ip address of scope', required=True)
+    if ip:
+        parser.add_argument('--ip-address', default=ip, help='ip address of scope')
+    else:
+        parser.add_argument('--ip-address', help='ip address of scope', required=True)
     parser.add_argument('settings', help='hdf5 output file')
     args = parser.parse_args()
+
+
 
     # establish communication with dpo
     rm = visa.ResourceManager()

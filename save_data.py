@@ -32,7 +32,6 @@ if __name__ == '__main__':
                 'SiPM Number',
                 'Jumper Position'
             ]
-            print(sys.argv[1])
             ch_spec_args = int(sys.argv[1])
 
             for i in range(ch_spec_args+2, len(sys.argv)-1, 2):
@@ -42,42 +41,38 @@ if __name__ == '__main__':
             if os.stat('Fit_Data.csv').st_size == 0:
                 writer.writeheader()
             
-            channel1 = {}
-            channel2 = {}
-            
+            rows = {}
             for chunk in data:
-                print(chunk)
-                if chunk['Channel'] == 'channel1':
-                    channel1['Channel'] = 'channel1'
-                    organize_data(chunk, channel1)
-                elif chunk['Channel'] == 'channel2':
-                    channel2['Channel'] = 'channel2'
-                    organize_data(chunk, channel2)
+                if chunk['Channel'] in rows.keys():
+                    organize_data(chunk, rows[chunk['Channel']])
                 else:
-                    raise ValueError('Unsupported channel')
-          
-            for channel in [channel1, channel2]:
+                    rows[chunk['Channel']] = {'Channel': chunk['Channel']}
+                    organize_data(chunk, rows[chunk['Channel']])
+            for channel in rows.values():
                 if channel:
-                    peak = float(channel['511 Peak Charge'])
-                    peakerr = float(channel['511 Peak Charge Err Abs'])
-                    print(channel)
-                    spe = float(channel['SPE Charge'])
-                    speerr = float(channel['SPE Charge Err Abs'])
-                    channel['LO'] =  peak / spe / ENERGY
-                    channel['LO Under Err'] = ((peak - peakerr) / (spe + speerr)) / ENERGY - channel['LO']
-                    channel['LO Over Err'] = ((peak + peakerr) / (spe - speerr)) / ENERGY - channel['LO']
+                    if '511 Peak Charge' in channel.keys():
+                        peak = float(channel['511 Peak Charge'])
+                        peakerr = float(channel['511 Peak Charge Err Abs'])
+                    if 'SPE Charge' in channel.keys():
+                        spe = float(channel['SPE Charge'])
+                        speerr = float(channel['SPE Charge Err Abs'])
+                    if '511 Peak Charge' in channel.keys() and 'SPE Charge' in channel.keys():
+                        channel['LO'] =  peak / spe / ENERGY
+                        channel['LO Under Err'] = ((peak - peakerr) / (spe + speerr)) / ENERGY - channel['LO']
+                        channel['LO Over Err'] = ((peak + peakerr) / (spe - speerr)) / ENERGY - channel['LO']
                     for i in range(ch_spec_args+2, len(sys.argv)-1, 2):
                         channel[sys.argv[i]] = sys.argv[i+1]
 
-            if channel1:
-                channel1['SiPM Number'] = sys.argv[2]
-                channel1['Jumper Position'] = sys.argv[3]
-                writer.writerow(channel1)
-            if channel2:
-                channel2['SiPM Number'] = sys.argv[4]
-                channel2['Jumper Position'] = sys.argv[5]
-                writer.writerow(channel2)
-            
+            if 'channel1' in rows.keys():
+                rows['channel1']['SiPM Number'] = sys.argv[2]
+                rows['channel1']['Jumper Position'] = sys.argv[3]
+            if 'channel2' in rows.keys():
+                rows['channel2']['SiPM Number'] = sys.argv[4]
+                rows['channel2']['Jumper Position'] = sys.argv[5]
+           
+            for channel in rows.values():
+                writer.writerow(channel)
+
             os.remove('temp_data.csv')
 
     except FileNotFoundError:
