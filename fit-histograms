@@ -42,6 +42,12 @@ def iqr(h):
     r = (((0.75 - low_prob) / (high_prob - low_prob)) * h.GetBinWidth(i)) + h.GetBinLowEdge(i)
     return r-l
 
+def average_distance_from(val, h):
+    d2 = 0
+    for i in range(h.GetMaximumBin() + 2):
+        d2 += (val - h.GetXaxis().GetBinCenter(i))**2 * h.GetBinContent(i)
+    return np.sqrt(d2)
+
 def save_as_csv(data_type, value, value_err, channel):
     with open ('temp_data.csv', 'a') as file:
         headers = [
@@ -92,11 +98,12 @@ def analyze_filter_data(h, f_h):
         return (D_OFFSET, D_NOISE_SPREAD, D_ZERO_PEAK_SPREAD)
     else:
         filter_fit = ROOT.TF1('filter_fit', 'gaus', f_h.GetMean() - 2*f_h.GetStdDev(), f_h.GetMean() + 2*f_h.GetStdDev())
-        f_h.Fit(filter_fit, 'SRQ')
+        f_h.Fit(filter_fit, 'SRQ0')
         offset = filter_fit.GetParameter(1)
         noise_spread = filter_fit.GetParameter(2)
-
-        raw_fit = ROOT.TF1('raw_fit', 'gaus', offset - 15*noise_spread, offset + 15*noise_spread)
+        
+        win = max(0.3, 20*noise_spread)
+        raw_fit = ROOT.TF1('raw_fit', 'gaus', offset - win, offset + win)
         raw_fit.SetParameter(1, offset)
         h.Fit(raw_fit, 'SRQ')
         offset = raw_fit.GetParameter(1)
@@ -137,6 +144,7 @@ if __name__ == '__main__':
     # parser.add_argument('--SPE_FLL', default=-0.1, type=float, help='Left limit on the spe fit')
     # parser.add_argument('--SPE_FLR', default=-0.1, type=float, help='Right limit on the spe fit')
     parser.add_argument('--NA_GF', default=50, type=float, help='Right limit on the spe fit')
+    parser.add_argument('--chi2', default=False, action='store_true', help='Save the ndof and chi2 value of the fit to csv')
 
     args = parser.parse_args()
     
@@ -173,15 +181,15 @@ if __name__ == '__main__':
             if h.ClassName() != 'TH1F' and h.ClassName() != 'TH1D':
                 continue
 
+            if h.GetEntries() < 1000:
+                continue
+
             if h.GetName().startswith('f_'):
                 filtered_histograms[h.GetName()] = h
                 keycount -= 1
             else:
                 raw_histograms[h.GetName()] = (h, keycount)
         
-        print(raw_histograms)
-        print(filtered_histograms)
-
         for histogram in raw_histograms:
             h = raw_histograms[histogram][0]
             keycount = raw_histograms[histogram][1]
@@ -276,26 +284,28 @@ if __name__ == '__main__':
 
                 # `l`, short for lambda, which is the average number of PEs measured in the integration window.
                 zero_peak_end = offset + 2 * raw_spread
+                print(f'zero_peak_end: {zero_peak_end}')
                 num_zero = h.Integral(0, get_bin_num(h, zero_peak_end))
                 prob_zero = num_zero / h.GetEntries()
                 l = -np.log(prob_zero)
                 
-                print(iqr(h))
-                SPE_charge = iqr(h) / l * 0.6
+                # SPE_charge = average_distance_from(offset, h) / l * 0.1
+                SPE_charge = min(2, iqr(h) / l * 0.3)
 
                 f1.SetRange(offset - raw_spread, f1.GetXmax())
                 
-                f1.SetParameter(0, h.GetEntries() * 0.075)
-                f1.SetParLimits(0,h.GetEntries() * 0.001, h.GetEntries() * 100)
+                f1.SetParameter(0, scale)
+                f1.SetParLimits(0, scale * 0.001, scale * 100)
 
                 f1.FixParameter(1, offset)
 
                 f1.SetParameter(2, l)
 
-                f1.FixParameter(3, SPE_charge)
+                f1.SetParameter(3, SPE_charge)
+                f1.SetParLimits(3, 0, 5)
 
                 f1.FixParameter(4, raw_spread)
-                # f1.SetParLimits(4, 0, 0.5)
+                f1.SetParLimits(4, 0.05, 0.5)
                 
                 f1.FixParameter(5, D_SPE_CHARGE_SPREAD)
 
@@ -338,8 +348,8 @@ if __name__ == '__main__':
                 f1.SetParLimits(1, f1.GetParameter(1) - 0.25, f1.GetParameter(1) + 0.5) 
                 f1.SetParLimits(2, min(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1) 
                 f1.SetParLimits(3, min(0, f1.GetParameter(3) - 0.5), f1.GetParameter(3) + 0.5) 
-                f1.SetParLimits(4, 0, f1.GetParameter(4) + 0.1) 
-                f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.1) 
+                f1.SetParLimits(4, 0, f1.GetParameter(4) + 2) 
+                f1.SetParLimits(5, 0, f1.GetParameter(5) + 2) 
 
 
 
@@ -355,10 +365,32 @@ if __name__ == '__main__':
                 #    f1.ReleaseParameter(i+2)
 
                 #r = h.Fit(f1, 'ILMSR+')
+                if args.chi2:
+                    with open('chi2_fit_data.csv', 'a') as csv_file:
+                        headers = [
+                            'channel',
+                            'ndof',
+                            'chi2',
+                            'prob',
+                            'filename'
+                        ]
+                        writer = csv.DictWriter(csv_file, headers)
+                        if os.stat('chi2_fit_data.csv').st_size == 0:
+                            writer.writeheader()
+                        writer.writerow({
+                            'channel': h.GetName(),
+                            'ndof': f1.GetNDF(),
+                            'chi2': f1.GetChisquare(),
+                            'prob': f1.GetProb(),
+                            'filename': filename
+                        })
+                        print(f1.GetProb())
+                        print(f1.GetChisquare())
+                
                 r = r.Get()
                 if not r.IsValid():
                     print("Fit error!")
-                    continue
+                    # continue
 
                 #print("peak 1 = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
                 #if n > 1:
@@ -373,14 +405,14 @@ if __name__ == '__main__':
                 #print(args.plot)
                 #print(args.pdf)
                 if args.plot:
-                    c = ROOT.TCanvas("c%i" % canvas_count)
+                    # c2 = ROOT.TCanvas("c%i" % canvas_count)
+                    # canvas_count += 1
+                    # filtered_histograms[f'f_{h.GetName()}'].Draw()
+                    # c2.Update()
+                    c = ROOT.TCanvas(f"c{canvas_count}")
                     canvas_count += 1
                     h.Draw()
                     c.Update()
-                    c2 = ROOT.TCanvas("c%i" % canvas_count)
-                    canvas_count += 1
-                    filtered_histograms[f'f_{h.GetName()}'].Draw()
-                    c2.Update()
                 if args.pdf:
                     print("***Print to PDF 2:")
                     c = ROOT.TCanvas("c%i" % canvas_count)
