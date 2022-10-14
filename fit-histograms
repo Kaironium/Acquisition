@@ -181,7 +181,8 @@ if __name__ == '__main__':
             if h.ClassName() != 'TH1F' and h.ClassName() != 'TH1D':
                 continue
 
-            if h.GetEntries() < 1000:
+            if h.GetEntries() <= 1000:
+                print('<= 1000 entries; skipping fit')
                 continue
 
             if h.GetName().startswith('f_'):
@@ -206,7 +207,8 @@ if __name__ == '__main__':
                 #Search 	( 	const TH1 *  	hin,
 	        #Double_t  	sigma = 2,
 		#Option_t *  	option = "",
-		#Double_t  	threshold = 0.05 #Peaks with  amplitude < th*Amax are discarded. If too small -> detects peaks after the 511 peak. The code right now detects the last peak detected as the 511 peak. Other option is to iterate through the y positions and keep always the latest peak with an increase over the previous ones? first derivative with respect to max/min closest to zero 	
+		#Double_t  	threshold = 0.05 #Peaks with  amplitude < th*Amax are discarded. If too small -> detects peaks after the 511 peak. The code right now detects the last peak (that doesn't have a huge width) as the 511 peak. Other option is to iterate through the y positions and keep always the latest peak with an increase over the previous ones? first derivative with respect to max/min closest to zero 	
+                h.GetListOfFunctions().Clear()
                 spec = ROOT.TSpectrum()
                 if(args.BV==42):
                     n_pks = spec.Search(h, 1, "", 0.01)
@@ -230,18 +232,29 @@ if __name__ == '__main__':
                 y_pos = y_pos[ind]
                                       
                 n = len(x_pos)
+                
+                # peak = x_pos[-1]
+               
+                f1 = None
+                win = 0.3 * h.GetStdDev()
+                for i in range(n-1, -1, -1):
+                    peak = x_pos[i]
+                    if peak < x_pos[0] + 0.01*h.GetStdDev():
+                        continue
+                    print(f'Fitting this peak! {peak}')
+                    f1 = ROOT.TF1("f1","gaus", peak-win, peak+win)
+                    r = h.Fit(f1, 'ILMSR+')
+                    r = r.Get()
+                    if not r.IsValid():
+                        continue
+                    if f1.GetParameter(0) > h.GetEntries() / 200:
+                        break
+                if f1 == None:
+                    peak = x_pos[-1]
+                    f1 = ROOT.TF1("f1","gaus", peak-win, peak+win)
+                    h.Fit(f1, 'ILMSR+')
 
-                peak = x_pos[-1]
 
-                f1 = ROOT.TF1("f1","gaus",peak-args.NA_GF,peak+args.NA_GF)
-
-                r = h.Fit(f1, 'ILMSR+')
-
-                r = r.Get()
-
-                if not r.IsValid():
-                    print("Fit error!")
-                    continue
                 #*** Store values in txt/csv file
                 print("511 peak = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
                 save_as_csv('sodium', f1.GetParameter(1), f1.GetParError(1), h.GetName())

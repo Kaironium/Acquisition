@@ -138,6 +138,7 @@ if __name__ == '__main__':
     parser.add_argument('--chunks', default=10000, type=int, help='number of waveforms to process at a time')
     parser.add_argument('--pdf', default=False, action='store_true', help='prints pdfs')
     parser.add_argument('--IT', default=300, type=float, help='integration time for SPE analysis')
+    parser.add_argument('--crosstalk', required=True, help='Channel numbers for crosstalk comparison')
     parser.add_argument('--r', default=50, type=float, help='time between upper bound of SPE analysis and lower bound of 511 analysis')
 
     args = parser.parse_args()
@@ -146,6 +147,21 @@ if __name__ == '__main__':
     f_charge = {}
     for filename in args.filenames:
         with h5py.File(filename) as f:
+            ch1 = args.crosstalk[0]
+            ch2 = args.crosstalk[1]
+            if ch2 not in f or ch2 not in f:
+                print('Unrecognized crosstalk channel')
+                sys.exit(1)
+
+            ###########
+            # Add crosstalk analysis below:
+            ###########
+
+
+
+
+
+
             for channel in f:
                 if channel == 'settings':
                     continue
