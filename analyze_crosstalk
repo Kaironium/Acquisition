@@ -132,36 +132,17 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='Analyze data from the Agilent scope')
     parser.add_argument('filenames',nargs='+',help='input filenames (hdf5 format)')
     parser.add_argument('-o','--output', default=None, help='output file name', required=True)
-    parser.add_argument('--sodium', default=False, action='store_true', help='flag to indicate data is from a sodium source')
-    parser.add_argument('--laser', default=False, action='store_true', help='flag to indicate data is from a laser source')
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
     parser.add_argument('--chunks', default=10000, type=int, help='number of waveforms to process at a time')
     parser.add_argument('--pdf', default=False, action='store_true', help='prints pdfs')
-    parser.add_argument('--IT', default=300, type=float, help='integration time for SPE analysis')
     parser.add_argument('--crosstalk', required=True, help='Channel numbers for crosstalk comparison')
-    parser.add_argument('--r', default=50, type=float, help='time between upper bound of SPE analysis and lower bound of 511 analysis')
-
     args = parser.parse_args()
 
     charge = {}
-    f_charge = {}
+    ch1 = f'channel{args.crosstalk[0]}'
+    ch2 = f'channel{args.crosstalk[1]}'
     for filename in args.filenames:
         with h5py.File(filename) as f:
-            ch1 = args.crosstalk[0]
-            ch2 = args.crosstalk[1]
-            if ch2 not in f or ch2 not in f:
-                print('Unrecognized crosstalk channel')
-                sys.exit(1)
-
-            ###########
-            # Add crosstalk analysis below:
-            ###########
-
-
-
-
-
-
             for channel in f:
                 if channel == 'settings':
                     continue
@@ -171,29 +152,12 @@ if __name__ == '__main__':
                 for i in range(0, N, args.chunks):
                     x, y = convert_data(f,channel,i,i+args.chunks)
 
-                    # Removed `if i == 0:` that initialized `a` and `b`, as well as contained the `y -= ...` statements because the offset should(?) be done for every chunk
-                    if args.sodium:
-                        a, b = get_window(x,y,left=50,right=300)
-                        y -= np.median(y[:,x < x[0] + 100],axis=-1)[:,np.newaxis]
-                        if channel in charge:
-                            charge[channel] = np.concatenate((charge[channel],integrate(x,y, a, b)))
-                        else:
-                            charge[channel] = integrate(x,y, a, b)
+                    a, b = get_window(x,y,left=50,right=300)
+                    y -= np.median(y[:,x < x[0] + 100],axis=-1)[:,np.newaxis]
+                    if channel in charge:
+                        charge[channel] = np.concatenate((charge[channel],integrate(x,y, a, b)))
                     else:
-                        # b = get_window(x,y,left=50,right=300)[0]
-                        a, b = get_spe_window(x, 10000, integration_time=200, rewind=0)
-                        a += 2500
-                        b += 2500
-                        y -= np.median(y[:,x < x[0] + 100])
-                        filter_y = filter_SPE(x, y)
-                        no_SPE_trials = np.min(y[:, x < x[0] + 100], axis=-1) > -5 * iqr(filter_y[:, np.logical_and(x >= x[100], x < x[100] + 100)].flatten())
-                        y -= np.median(y[no_SPE_trials][:,x < x[0] + 100])
-                        if channel in charge:
-                            charge[channel] = np.concatenate((charge[channel],integrate(x,y, a, b)))
-                            f_charge[channel] = np.concatenate((f_charge[channel], integrate(x, filter_y, a, b))) 
-                        else:
-                            charge[channel] = integrate(x,y, a, b)
-                            f_charge[channel] = integrate(x, filter_y, a, b) 
+                        charge[channel] = integrate(x,y, a, b)
                     
                 if args.plot or args.pdf:
                     plt.figure()
@@ -212,28 +176,8 @@ if __name__ == '__main__':
                     plt.suptitle(channel)
                 if args.pdf:
                     prname=filename[:len(filename)-5]
-                    #print("PDF printing")
                     plt.savefig("./FiguresAnalysis/"+prname+"_"+str(channel)+"_TimeVolt"+".pdf")
                 
-                # Plotting the filtered voltage signal. Doesn't have to be included in the final draft of this code.
-                # if args.plot or args.pdf:
-                #     plt.figure()
-                #     plt.subplot(2,1,1)
-                #     plt.plot(x,filter_y[:100].T)
-                #     plt.xlabel("Time (ns)")
-                #     plt.ylabel("Voltage (V)")
-                #     plt.axvline(x[a])
-                #     plt.axvline(x[b])
-                #     plt.subplot(2,1,2)
-                #     plt.plot(x,np.median(filter_y,axis=0))
-                #     plt.xlabel("Time (ns)")
-                #     plt.ylabel("Voltage (V)")
-                #     plt.axvline(x[a])
-                #     plt.axvline(x[b])
-                #     plt.suptitle(channel)
-
-
-
     f = ROOT.TFile(args.output,"recreate")
     for channel in charge:
         bins = get_bins(charge[channel])
@@ -241,7 +185,6 @@ if __name__ == '__main__':
         for x in charge[channel]:
             h.Fill(x)
         h.GetXaxis().SetTitle("Charge (pC)")
-        # h.GetXaxis().SetRange(-4, 4)
         
         if args.plot or args.pdf:
             plt.figure()
@@ -249,32 +192,21 @@ if __name__ == '__main__':
             plt.xlabel("Charge (pC)")
             plt.legend()
         if args.pdf:
-            #print("PDF printing")
-            #print("FILENAME:")
-            #print(filename[1:10])
-            #print(len(filename))
-            #figname=filename[:len[filename]-6]
             prname=filename[:len(filename)-5]
             plt.savefig("./FiguresAnalysis/"+prname+"_"+str(channel)+".pdf")
         h.Write()
-    # f.Close()
-
-    # The prefix `f_` will be used to denote objects that correspond to filtered data.
-    # f_f = ROOT.TFile('filtered_charge_data.root', 'recreate')
-    for f_channel in f_charge:
-        f_bins = get_bins(f_charge[f_channel])
-        f_h = ROOT.TH1D(f'f_{f_channel}', "Filtered Charge Integral for %s" % f_channel, len(f_bins), f_bins[0], f_bins[-1])
-        for x in f_charge[channel]:
-            f_h.Fill(x)
-        f_h.GetXaxis().SetTitle('Charge (pC)')
-        if args.plot or args.pdf:
-            plt.figure()
-            plt.hist(f_charge[f_channel], bins=f_bins, histtype='step', label=f_channel)
-            plt.xlabel('Charge (pC)')
-            plt.legend()
-        f_h.Write()
-    # f_f.Close()
     f.Close()
+
+    # Crosstalk analysis
+    if ch1 not in charge:
+        print(f'Missing {ch1} data')
+    elif ch2 not in charge:
+        print(f'Missing {ch2} data')
+    else:
+        plt.figure()
+        charge_ratio = charge[ch2]/charge[ch1]
+        plt.hist(charge_ratio, bins=get_bins(charge_ratio), histtype='step')
+        plt.suptitle(f'Charge {ch2}/Charge {ch1}')
 
     if args.plot:
         plt.show()
